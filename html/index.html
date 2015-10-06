@@ -1,0 +1,82 @@
+<html>
+<head>
+	<title>Look Quick!</title>
+	<script src="js/dropzone.js"></script>
+	<style>
+		form {
+			cursor: pointer;
+			border: 2px dashed #0087F7;
+			border-radius: 5px;
+			background: white;
+			min-height: 300px;
+			text-align:center;
+			width:50%;
+			margin:0 auto;
+		}
+
+	</style>
+</head>
+<body>
+
+	<form action="/post" class="dropzone" id="myDropZone" enctype="multipart/form-data" method="post">
+
+		<div class="dz-message"><h1>Drop image here or click to upload.</h1><h4>Images here and gone in 5 minutes! Better look quick.</h4></div>
+
+	</form>	
+<div id="template" style="display:none;">
+<div class="dz-preview dz-file-preview">
+  <div class="dz-details">
+    <div class="dz-filename"><span data-dz-name></span></div>
+    <div class="dz-size" data-dz-size></div>
+    <img data-dz-thumbnail />
+  </div>
+  <div class="dz-error-message"><span data-dz-errormessage></span></div>
+  <div>Uploading in <span id="countdown">5</span> seconds</div>
+  <button data-dz-remove class="cancelbutton">cancel</button>
+</div>
+</div>
+
+<script>
+	var countdown = null;
+	var counter = 5;
+
+	function resetTimer() {
+		counter = 5;
+		window.clearInterval(countdown);
+	}
+
+	Dropzone.options.myDropZone = {
+		previewTemplate : document.getElementById("template").innerHTML,
+		maxFiles : 1,
+		maxFilesize: 1,
+		acceptedFiles : "image/*",
+		autoProcessQueue : false,
+		init : function() {
+			this.on("maxfilesexceeded", function(file) { this.removeFile(file); });
+			this.on("error", function(file) { if(!file.accepted) { resetTimer(); this.removeFile(file); return; } });
+
+			var myDropzone = this;
+			this.on("addedfile", function(file) {
+				countdown = window.setInterval(function() {
+					document.getElementById('countdown').innerHTML = --counter;
+
+					if(counter <= 0) {
+						resetTimer();
+						myDropzone.processQueue();
+					}
+				}, 1000);
+
+				document.querySelector(".cancelbutton").addEventListener("click", function() {
+					resetTimer();
+				});
+			});
+
+			this.on("success", function(files, response) {
+				window.location.replace("/?key="+response);
+			});
+		}
+	};
+
+</script>
+</body>
+</html>
