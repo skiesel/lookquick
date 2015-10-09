@@ -107,10 +107,12 @@ func renderRequest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	image := getFromMemCache(c, key[0])
+	image, expired := getFromMemCache(c, key[0])
 	if image == nil {
-		image = getFromDatastore(c, key[0])
-		if image == nil {
+		if !expired {
+			image, expired = getFromDatastore(c, key[0])
+		}
+		if image == nil || expired {
 			err := pages.ExecuteTemplate(w, "notfound.html", key[0])
 			if err != nil {
 				renderError(w, c, err)
@@ -140,40 +142,40 @@ func randomKey(size int64) string {
 	return string(key)
 }
 
-func getFromMemCache(c appengine.Context, key string) *RawImage {
+func getFromMemCache(c appengine.Context, key string) (*RawImage, bool) {
 	var image RawImage
 	_, err := memcache.JSON.Get(c, key, &image)
 	if err == memcache.ErrCacheMiss {
-		return nil
+		return nil, false
 	} else if err != nil {
-		return nil
+		return nil, false
 	}
 
 	if image.Expiration.Before(time.Now()) {
 		removeFromMemCache(c, key)
 		removeFromDatastore(c, key, nil)
-		return nil
+		return nil, true
 	}
 
-	return &image
+	return &image, false
 }
 
-func getFromDatastore(c appengine.Context, key string) *RawImage {
+func getFromDatastore(c appengine.Context, key string) (*RawImage, bool) {
 	images := []*RawImage{}
 	keys, err := datastore.NewQuery("RawImage").
 		Filter("ID = ", key).
 		GetAll(c, &images)
 
 	if err != nil || len(images) == 0 {
-		return nil
+		return nil, false
 	}
 
 	if images[0].Expiration.Before(time.Now()) {
 		removeFromDatastore(c, key, keys[0])
-		return nil
+		return nil, true
 	}
 
-	return images[0]
+	return images[0], false
 }
 
 func removeFromMemCache(c appengine.Context, key string) {
